@@ -473,7 +473,7 @@ export default function App() {
                 <div style={S.leadHeader}>
                   <div>
                     {u.customerName && <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 2 }}>{u.customerName}</div>}
-                    {isAdmin && <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: 1, color: T.sub, fontFamily: "monospace" }}>{u.phone}</div>}
+                    {(isAdmin || u.salesUsername === currentUser.username) && <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: 1, color: T.sub, fontFamily: "monospace" }}>{u.phone}</div>}
                     <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{timeAgo(u.createdAt)}</div>
                   </div>
                   <span style={S.badge(u.status, UNIT_STATUS_STYLE)}><span style={S.dot(u.status, UNIT_STATUS_STYLE)} />{u.status}</span>
