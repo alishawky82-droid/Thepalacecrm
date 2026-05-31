@@ -93,7 +93,9 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [tab, setTab] = useState("add");
   const [form, setForm] = useState(EMPTY_FORM);
+  const [formSalesTarget, setFormSalesTarget] = useState("");
   const [unitForm, setUnitForm] = useState(EMPTY_UNIT);
+  const [unitFormSalesTarget, setUnitFormSalesTarget] = useState("");
   const [duplicateAlert, setDuplicateAlert] = useState(null);
   const [unitDupAlert, setUnitDupAlert] = useState(null);
   const [toast, setToast] = useState(null);
@@ -113,11 +115,17 @@ export default function App() {
   const imgRef = useRef();
 
   const T = THEMES[theme];
+  const isAdmin = currentUser?.role === "admin";
+
+  const allUsersForSelect = [
+    { username: ADMIN.username, name: ADMIN.name },
+    ...users.map(u => ({ username: u.username, name: u.name }))
+  ];
 
   useEffect(() => {
     if (!currentUser) return;
     const leadsRef = collection(db, "leads");
-    const q = currentUser.role === "admin"
+    const q = isAdmin
       ? query(leadsRef, orderBy("createdAt", "desc"))
       : query(leadsRef, where("salesUsername", "==", currentUser.username), orderBy("createdAt", "desc"));
     return onSnapshot(q, snap => setLeads(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
@@ -126,14 +134,14 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
     const unitsRef = collection(db, "units");
-    const q = currentUser.role === "admin"
+    const q = isAdmin
       ? query(unitsRef, orderBy("createdAt", "desc"))
       : query(unitsRef, where("salesUsername", "==", currentUser.username), orderBy("createdAt", "desc"));
     return onSnapshot(q, snap => setUnits(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
   }, [currentUser]);
 
   useEffect(() => {
-    if (!currentUser || currentUser.role !== "admin") return;
+    if (!currentUser) return;
     return onSnapshot(collection(db, "users"), snap => setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
   }, [currentUser]);
 
@@ -163,8 +171,16 @@ export default function App() {
     if (!form.phone || form.phone.length < 10) return showToast("ادخل رقم تليفون صحيح", "error");
     if (!form.project) return showToast("اختار المشروع", "error");
     if (checkDuplicate(form.phone, leads)) return showToast("الرقم مسجل قبل كده", "error");
-    await addDoc(collection(db, "leads"), { ...form, sales: currentUser.name, salesUsername: currentUser.username, createdAt: Date.now(), updatedAt: Date.now() });
-    setForm(EMPTY_FORM); setDuplicateAlert(null);
+    const targetUser = isAdmin && formSalesTarget
+      ? allUsersForSelect.find(u => u.username === formSalesTarget)
+      : { username: currentUser.username, name: currentUser.name };
+    await addDoc(collection(db, "leads"), {
+      ...form,
+      sales: targetUser.name,
+      salesUsername: targetUser.username,
+      createdAt: Date.now(), updatedAt: Date.now()
+    });
+    setForm(EMPTY_FORM); setDuplicateAlert(null); setFormSalesTarget("");
     showToast("✅ تم إضافة العميل");
     setTimeout(() => phoneRef.current?.focus(), 100);
   };
@@ -173,8 +189,16 @@ export default function App() {
     if (!unitForm.phone || unitForm.phone.length < 10) return showToast("ادخل رقم تليفون صحيح", "error");
     if (!unitForm.project) return showToast("اختار المشروع", "error");
     if (checkDuplicate(unitForm.phone, units)) return showToast("الرقم مسجل في الوحدات قبل كده", "error");
-    await addDoc(collection(db, "units"), { ...unitForm, sales: currentUser.name, salesUsername: currentUser.username, createdAt: Date.now(), updatedAt: Date.now() });
-    setUnitForm(EMPTY_UNIT); setUnitDupAlert(null);
+    const targetUser = isAdmin && unitFormSalesTarget
+      ? allUsersForSelect.find(u => u.username === unitFormSalesTarget)
+      : { username: currentUser.username, name: currentUser.name };
+    await addDoc(collection(db, "units"), {
+      ...unitForm,
+      sales: targetUser.name,
+      salesUsername: targetUser.username,
+      createdAt: Date.now(), updatedAt: Date.now()
+    });
+    setUnitForm(EMPTY_UNIT); setUnitDupAlert(null); setUnitFormSalesTarget("");
     showToast("✅ تم إضافة الوحدة");
   };
 
@@ -195,7 +219,6 @@ export default function App() {
   };
 
   const handleDeleteUser = async (id) => { await deleteDoc(doc(db, "users", id)); showToast("تم الحذف", "error"); };
-
   const handleTheme = (t) => { setTheme(t); localStorage.setItem("crm_theme", t); };
 
   const handleImgUpload = (e) => {
@@ -214,10 +237,9 @@ export default function App() {
   const handleChangePassword = async () => {
     if (!settingsForm.oldPass || !settingsForm.newPass || !settingsForm.confirmPass) return showToast("ادخل كل البيانات", "error");
     if (settingsForm.newPass !== settingsForm.confirmPass) return showToast("كلمة المرور الجديدة مش متطابقة", "error");
-    const isAdmin = currentUser.username === ADMIN.username;
-    if (isAdmin) {
+    if (currentUser.username === ADMIN.username) {
       if (settingsForm.oldPass !== ADMIN.password) return showToast("كلمة المرور القديمة غلط", "error");
-      showToast("✅ تم تغيير كلمة المرور — عدّل ملف users.js");
+      showToast("✅ تم — عدّل ملف users.js لتغيير كلمة مرور الأدمن");
     } else {
       const userDoc = users.find(u => u.username === currentUser.username);
       if (!userDoc || userDoc.password !== settingsForm.oldPass) return showToast("كلمة المرور القديمة غلط", "error");
@@ -238,7 +260,7 @@ export default function App() {
 
   const filteredUnits = units.filter(u => {
     const q = unitSearch.toLowerCase();
-    const matchSearch = !q || u.phone.includes(q) || (u.customerName || "").toLowerCase().includes(q) || u.sales.toLowerCase().includes(q) || u.project.toLowerCase().includes(q);
+    const matchSearch = !q || (u.customerName || "").toLowerCase().includes(q) || u.sales.toLowerCase().includes(q) || u.project.toLowerCase().includes(q);
     return matchSearch && (filterUnitSales === "الكل" || u.sales === filterUnitSales);
   });
 
@@ -256,7 +278,7 @@ export default function App() {
     logoAccent: { color: "#3b82f6" },
     tabBar: { display: "flex", gap: 2, flexWrap: "wrap" },
     tab: (a) => ({ padding: "7px 12px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: a ? 700 : 500, background: a ? "#3b82f6" : "transparent", color: a ? "#fff" : T.sub }),
-    logoutBtn: { background: "#2a0f0f", color: "#f87171", border: "1px solid #7f1d1d", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" },
+    logoutBtn: { background: "#2a0f0f", color: "#f87171", border: "1px solid #7f1d1d", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
     body: { maxWidth: 900, margin: "0 auto", padding: "28px 16px" },
     card: { background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24, marginBottom: 20 },
     label: { fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 7, display: "block" },
@@ -302,14 +324,14 @@ export default function App() {
           <button style={S.tab(tab === "list")} onClick={() => setTab("list")}>👥 العملاء {leads.length > 0 && <span style={{ background: T.border, borderRadius: 20, padding: "1px 6px", fontSize: 10, marginRight: 2 }}>{leads.length}</span>}</button>
           <button style={S.tab(tab === "units")} onClick={() => setTab("units")}>🏠 الوحدات {units.length > 0 && <span style={{ background: T.border, borderRadius: 20, padding: "1px 6px", fontSize: 10, marginRight: 2 }}>{units.length}</span>}</button>
           <button style={S.tab(tab === "stats")} onClick={() => setTab("stats")}>📊 إحصائيات</button>
-          {currentUser.role === "admin" && <button style={S.tab(tab === "users")} onClick={() => setTab("users")}>👤 المستخدمين</button>}
+          {isAdmin && <button style={S.tab(tab === "users")} onClick={() => setTab("users")}>👤 المستخدمين</button>}
           <button style={S.tab(tab === "themes")} onClick={() => setTab("themes")}>🎨 Themes</button>
           <button style={S.tab(tab === "settings")} onClick={() => setTab("settings")}>⚙️ Settings</button>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {profileImg
             ? <img src={profileImg} alt="profile" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", border: "2px solid #3b82f6" }} />
-            : <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1a2540", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>👤</div>
+            : <div style={{ width: 32, height: 32, borderRadius: "50%", background: T.border, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>👤</div>
           }
           <span style={{ fontSize: 11, color: T.sub }}>{currentUser.name}</span>
           <button style={S.logoutBtn} onClick={handleLogout}>خروج</button>
@@ -330,7 +352,17 @@ export default function App() {
             {form.phone.length >= 8 && !duplicateAlert && <div style={{ ...S.dupAlert, ...S.dupAlertGreen, marginBottom: 16 }}><span>✅</span><div style={{ fontSize: 13, color: "#4ade80", fontWeight: 700 }}>الرقم متاح</div></div>}
             <div style={S.row2}>
               <div><label style={S.label}>🧑 اسم العميل</label><input style={S.input} placeholder="اسم العميل" value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} /></div>
-              <div><label style={S.label}>👤 السيلز</label><input style={{ ...S.input, opacity: 0.6 }} value={currentUser.name} readOnly /></div>
+              <div>
+                <label style={S.label}>👤 السيلز</label>
+                {isAdmin ? (
+                  <select style={S.select} value={formSalesTarget} onChange={e => setFormSalesTarget(e.target.value)}>
+                    <option value="">اختار السيلز</option>
+                    {allUsersForSelect.map(u => <option key={u.username} value={u.username}>{u.name}</option>)}
+                  </select>
+                ) : (
+                  <input style={{ ...S.input, opacity: 0.6 }} value={currentUser.name} readOnly />
+                )}
+              </div>
             </div>
             <div style={{ marginBottom: 16 }}>
               <label style={S.label}>🏢 المشروع *</label>
@@ -357,7 +389,7 @@ export default function App() {
         {tab === "list" && (
           <>
             <input style={S.searchBar} placeholder="🔍 ابحث..." value={search} onChange={e => setSearch(e.target.value)} />
-            {currentUser.role === "admin" && <div style={S.filters}><span style={{ fontSize: 12, color: T.sub, alignSelf: "center" }}>السيلز:</span>{allSales.map(s => <button key={s} style={S.filterBtn(filterSales === s)} onClick={() => setFilterSales(s)}>{s}</button>)}</div>}
+            {isAdmin && <div style={S.filters}><span style={{ fontSize: 12, color: T.sub, alignSelf: "center" }}>السيلز:</span>{allSales.map(s => <button key={s} style={S.filterBtn(filterSales === s)} onClick={() => setFilterSales(s)}>{s}</button>)}</div>}
             <div style={S.filters}><span style={{ fontSize: 12, color: T.sub, alignSelf: "center" }}>الحالة:</span>{["الكل", ...STATUS_OPTIONS].map(s => <button key={s} style={S.filterBtn(filterStatus === s)} onClick={() => setFilterStatus(s)}>{s}</button>)}</div>
             <div style={{ fontSize: 12, color: T.sub, marginBottom: 14 }}>{filtered.length} عميل</div>
             {filtered.length === 0 && <div style={{ textAlign: "center", padding: "60px 0", color: T.sub }}><div style={{ fontSize: 40 }}>🔍</div><div>مفيش نتايج</div></div>}
@@ -377,10 +409,10 @@ export default function App() {
                 </div>
                 {l.feedback && <div style={S.feedback}>💬 {l.feedback}</div>}
                 <div style={S.actions}>
-                  {(currentUser.role === "admin" || l.salesUsername === currentUser.username) && <button style={S.btnSm("#1e3a5f")} onClick={() => { setEditId(l.id); setEditForm({ customerName: l.customerName || "", status: l.status, feedback: l.feedback || "", project: l.project }); }}>✏️ تعديل</button>}
+                  {(isAdmin || l.salesUsername === currentUser.username) && <button style={S.btnSm("#1e3a5f")} onClick={() => { setEditId(l.id); setEditForm({ customerName: l.customerName || "", status: l.status, feedback: l.feedback || "", project: l.project }); }}>✏️ تعديل</button>}
                   <a href={`https://wa.me/2${l.phone}`} target="_blank" rel="noreferrer"><button style={S.btnSm("#14532d")}>💬 واتساب</button></a>
                   <a href={`tel:${l.phone}`}><button style={S.btnSm("#1e2d3a")}>📞 اتصل</button></a>
-                  {(currentUser.role === "admin" || l.salesUsername === currentUser.username) && <button style={{ ...S.btnSm("#2a0f0f"), marginRight: "auto" }} onClick={() => setConfirmDelete(l.id)}>🗑️</button>}
+                  {(isAdmin || l.salesUsername === currentUser.username) && <button style={{ ...S.btnSm("#2a0f0f"), marginRight: "auto" }} onClick={() => setConfirmDelete(l.id)}>🗑️</button>}
                 </div>
               </div>
             ))}
@@ -400,7 +432,17 @@ export default function App() {
               {unitForm.phone.length >= 8 && !unitDupAlert && <div style={{ ...S.dupAlert, ...S.dupAlertGreen, marginBottom: 16 }}><span>✅</span><div style={{ fontSize: 13, color: "#4ade80", fontWeight: 700 }}>الرقم متاح</div></div>}
               <div style={S.row2}>
                 <div><label style={S.label}>🧑 اسم العميل</label><input style={S.input} placeholder="اسم العميل" value={unitForm.customerName} onChange={e => setUnitForm(f => ({ ...f, customerName: e.target.value }))} /></div>
-                <div><label style={S.label}>👤 السيلز</label><input style={{ ...S.input, opacity: 0.6 }} value={currentUser.name} readOnly /></div>
+                <div>
+                  <label style={S.label}>👤 السيلز</label>
+                  {isAdmin ? (
+                    <select style={S.select} value={unitFormSalesTarget} onChange={e => setUnitFormSalesTarget(e.target.value)}>
+                      <option value="">اختار السيلز</option>
+                      {allUsersForSelect.map(u => <option key={u.username} value={u.username}>{u.name}</option>)}
+                    </select>
+                  ) : (
+                    <input style={{ ...S.input, opacity: 0.6 }} value={currentUser.name} readOnly />
+                  )}
+                </div>
               </div>
               <div style={{ marginBottom: 16 }}>
                 <label style={S.label}>🏢 المشروع *</label>
@@ -421,8 +463,9 @@ export default function App() {
               </div>
               <button style={{ ...S.btn, opacity: unitDupAlert ? .4 : 1 }} onClick={handleUnitSubmit} disabled={!!unitDupAlert}>إضافة الوحدة ✓</button>
             </div>
+
             <input style={S.searchBar} placeholder="🔍 ابحث في الوحدات..." value={unitSearch} onChange={e => setUnitSearch(e.target.value)} />
-            {currentUser.role === "admin" && <div style={S.filters}><span style={{ fontSize: 12, color: T.sub, alignSelf: "center" }}>السيلز:</span>{allUnitSales.map(s => <button key={s} style={S.filterBtn(filterUnitSales === s)} onClick={() => setFilterUnitSales(s)}>{s}</button>)}</div>}
+            {isAdmin && <div style={S.filters}><span style={{ fontSize: 12, color: T.sub, alignSelf: "center" }}>السيلز:</span>{allUnitSales.map(s => <button key={s} style={S.filterBtn(filterUnitSales === s)} onClick={() => setFilterUnitSales(s)}>{s}</button>)}</div>}
             <div style={{ fontSize: 12, color: T.sub, marginBottom: 14 }}>{filteredUnits.length} وحدة</div>
             {filteredUnits.length === 0 && <div style={{ textAlign: "center", padding: "60px 0", color: T.sub }}><div style={{ fontSize: 40 }}>🏠</div><div>مفيش وحدات لسه</div></div>}
             {filteredUnits.map(u => (
@@ -430,7 +473,7 @@ export default function App() {
                 <div style={S.leadHeader}>
                   <div>
                     {u.customerName && <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 2 }}>{u.customerName}</div>}
-                    <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: 1, color: T.sub, fontFamily: "monospace" }}>{u.phone}</div>
+                    {isAdmin && <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: 1, color: T.sub, fontFamily: "monospace" }}>{u.phone}</div>}
                     <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{timeAgo(u.createdAt)}</div>
                   </div>
                   <span style={S.badge(u.status, UNIT_STATUS_STYLE)}><span style={S.dot(u.status, UNIT_STATUS_STYLE)} />{u.status}</span>
@@ -442,8 +485,8 @@ export default function App() {
                 {u.details && <div style={S.feedback}>🏠 {u.details}</div>}
                 <div style={S.actions}>
                   <a href={`https://wa.me/2${u.phone}`} target="_blank" rel="noreferrer"><button style={S.btnSm("#14532d")}>💬 واتساب</button></a>
-                  <a href={`tel:${u.phone}`}><button style={S.btnSm("#1e2d3a")}>📞 اتصل</button></a>
-                  {(currentUser.role === "admin" || u.salesUsername === currentUser.username) && <button style={{ ...S.btnSm("#2a0f0f"), marginRight: "auto" }} onClick={() => setConfirmDeleteUnit(u.id)}>🗑️</button>}
+                  {isAdmin && <a href={`tel:${u.phone}`}><button style={S.btnSm("#1e2d3a")}>📞 اتصل</button></a>}
+                  {(isAdmin || u.salesUsername === currentUser.username) && <button style={{ ...S.btnSm("#2a0f0f"), marginRight: "auto" }} onClick={() => setConfirmDeleteUnit(u.id)}>🗑️</button>}
                 </div>
               </div>
             ))}
@@ -486,7 +529,7 @@ export default function App() {
         )}
 
         {/* USERS */}
-        {tab === "users" && currentUser.role === "admin" && (
+        {tab === "users" && isAdmin && (
           <div style={S.card}>
             <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20 }}>➕ إضافة مستخدم جديد</div>
             <div style={S.row2}>
@@ -495,8 +538,7 @@ export default function App() {
             </div>
             <div style={S.row2}>
               <div><label style={S.label}>🧑 الاسم الكامل</label><input style={S.input} placeholder="اسم الموظف" value={newUserForm.name} onChange={e => setNewUserForm(f => ({ ...f, name: e.target.value }))} /></div>
-              <div>
-                <label style={S.label}>🎭 الصلاحية</label>
+              <div><label style={S.label}>🎭 الصلاحية</label>
                 <select style={S.select} value={newUserForm.role} onChange={e => setNewUserForm(f => ({ ...f, role: e.target.value }))}>
                   <option value="sales">Sales</option>
                   <option value="admin">Admin</option>
@@ -570,7 +612,6 @@ export default function App() {
             </div>
           </>
         )}
-
       </div>
 
       {editId && (
