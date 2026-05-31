@@ -13,12 +13,18 @@ const STATUS_STYLE = {
   "Meeting":        { bg: "#0f2a1e", color: "#34d399", dot: "#10b981" },
   "Done Deal":      { bg: "#0a2a1a", color: "#4ade80", dot: "#22c55e" },
 };
-const UNIT_STATUS = ["Available", "Sold Out"];
 const UNIT_STATUS_STYLE = {
   "Available": { bg: "#0a2a1a", color: "#4ade80", dot: "#22c55e" },
   "Sold Out":  { bg: "#2a0f0f", color: "#f87171", dot: "#ef4444" },
 };
-const PROJECTS = ["كمبوند سيتي ستارز", "بالم هيلز التجمع", "كمبوند الماظة", "ميفيدا", "هايد بارك", "سوديك إيست", "تاون جيت", "أخرى"];
+const PROJECTS = [
+  "بالم هيلز القاهرة الجديدة","ميفيدا","هايد بارك","سوديك إيست","تاون جيت","كمبوند الماظة",
+  "بيت الوطن","ماونتن فيو التجمع","كمبوند سيتي ستارز","لافيستا","سراي","الكمبوند الجولف",
+  "ويستاون سوديك","بيفرلي هيلز أكتوبر","ماونتن فيو أكتوبر","ويست تاون","بالم هيلز أكتوبر",
+  "الشيخ زايد","دريم لاند","كمبوند هايد بارك أكتوبر","نورث كوست مراسي","هاسيندا باي",
+  "سيدي عبدالرحمن","نورث كوست سوديك","ماونتن فيو راس الحكمة","الساحل الشمالي العام",
+  "العين السخنة بورتو","العين السخنة مونت گالا","العين السخنة هاسيندا","السخنة العام","أخرى"
+];
 const EMPTY_FORM = { phone: "", customerName: "", project: "", feedback: "", status: "No Answer" };
 const EMPTY_UNIT = { phone: "", customerName: "", project: "", details: "", status: "Available" };
 const THEMES = {
@@ -44,25 +50,23 @@ function LoginPage({ onLogin }) {
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "users"), snap => {
+    return onSnapshot(collection(db, "users"), snap => {
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-    return unsub;
   }, []);
 
   const handleLogin = () => {
     if (user === ADMIN.username && pass === ADMIN.password) {
-      localStorage.setItem("crm_user", JSON.stringify({ username: ADMIN.username, role: "admin", name: ADMIN.name }));
-      onLogin({ username: ADMIN.username, role: "admin", name: ADMIN.name });
-      return;
+      const u = { username: ADMIN.username, role: "admin", name: ADMIN.name };
+      localStorage.setItem("crm_user", JSON.stringify(u));
+      onLogin(u); return;
     }
     const found = users.find(u => u.username === user && u.password === pass);
     if (found) {
-      localStorage.setItem("crm_user", JSON.stringify({ username: found.username, role: "sales", name: found.name }));
-      onLogin({ username: found.username, role: "sales", name: found.name });
-    } else {
-      setError("اسم المستخدم أو كلمة المرور غلط!");
-    }
+      const u = { username: found.username, role: found.role || "sales", name: found.name };
+      localStorage.setItem("crm_user", JSON.stringify(u));
+      onLogin(u);
+    } else setError("اسم المستخدم أو كلمة المرور غلط!");
   };
 
   return (
@@ -71,14 +75,10 @@ function LoginPage({ onLogin }) {
         <div style={{ fontSize: 22, fontWeight: 900, color: "#f1f5f9", marginBottom: 8, textAlign: "center" }}>🏢 The Palace CRM</div>
         <div style={{ fontSize: 13, color: "#64748b", marginBottom: 32, textAlign: "center" }}>سجل دخولك للمتابعة</div>
         {error && <div style={{ background: "#2a0f0f", border: "1px solid #7f1d1d", borderRadius: 10, padding: "10px 14px", color: "#f87171", fontSize: 13, marginBottom: 16, textAlign: "center" }}>{error}</div>}
-        <div>
-          <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600, marginBottom: 7, display: "block" }}>👤 اسم المستخدم</label>
-          <input style={{ width: "100%", background: "#070b14", border: "1px solid #1a2540", borderRadius: 10, padding: "12px 14px", color: "#f1f5f9", fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "inherit", marginBottom: 16 }} placeholder="username" value={user} onChange={e => setUser(e.target.value)} />
-        </div>
-        <div>
-          <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600, marginBottom: 7, display: "block" }}>🔒 كلمة المرور</label>
-          <input style={{ width: "100%", background: "#070b14", border: "1px solid #1a2540", borderRadius: 10, padding: "12px 14px", color: "#f1f5f9", fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "inherit", marginBottom: 16 }} type="password" placeholder="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} />
-        </div>
+        <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600, marginBottom: 7, display: "block" }}>👤 اسم المستخدم</label>
+        <input style={{ width: "100%", background: "#070b14", border: "1px solid #1a2540", borderRadius: 10, padding: "12px 14px", color: "#f1f5f9", fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "inherit", marginBottom: 16 }} placeholder="username" value={user} onChange={e => setUser(e.target.value)} />
+        <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600, marginBottom: 7, display: "block" }}>🔒 كلمة المرور</label>
+        <input style={{ width: "100%", background: "#070b14", border: "1px solid #1a2540", borderRadius: 10, padding: "12px 14px", color: "#f1f5f9", fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "inherit", marginBottom: 16 }} type="password" placeholder="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} />
         <button style={{ background: "linear-gradient(135deg,#2563eb,#4f46e5)", color: "#fff", border: "none", borderRadius: 10, padding: "13px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", width: "100%", fontFamily: "inherit" }} onClick={handleLogin}>دخول</button>
       </div>
     </div>
@@ -101,12 +101,16 @@ export default function App() {
   const [unitSearch, setUnitSearch] = useState("");
   const [filterSales, setFilterSales] = useState("الكل");
   const [filterStatus, setFilterStatus] = useState("الكل");
-  const [newUserForm, setNewUserForm] = useState({ username: "", password: "", name: "" });
+  const [filterUnitSales, setFilterUnitSales] = useState("الكل");
+  const [newUserForm, setNewUserForm] = useState({ username: "", password: "", name: "", role: "sales" });
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmDeleteUnit, setConfirmDeleteUnit] = useState(null);
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [settingsForm, setSettingsForm] = useState({ oldPass: "", newPass: "", confirmPass: "" });
+  const [profileImg, setProfileImg] = useState(() => localStorage.getItem(`crm_img_${JSON.parse(localStorage.getItem("crm_user") || "{}").username}`) || "");
   const phoneRef = useRef();
+  const imgRef = useRef();
 
   const T = THEMES[theme];
 
@@ -133,7 +137,7 @@ export default function App() {
     return onSnapshot(collection(db, "users"), snap => setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
   }, [currentUser]);
 
-  if (!currentUser) return <LoginPage onLogin={u => setCurrentUser(u)} />;
+  if (!currentUser) return <LoginPage onLogin={u => { setCurrentUser(u); setProfileImg(localStorage.getItem(`crm_img_${u.username}`) || ""); }} />;
 
   const showToast = (msg, type = "success") => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -160,8 +164,7 @@ export default function App() {
     if (!form.project) return showToast("اختار المشروع", "error");
     if (checkDuplicate(form.phone, leads)) return showToast("الرقم مسجل قبل كده", "error");
     await addDoc(collection(db, "leads"), { ...form, sales: currentUser.name, salesUsername: currentUser.username, createdAt: Date.now(), updatedAt: Date.now() });
-    setForm(EMPTY_FORM);
-    setDuplicateAlert(null);
+    setForm(EMPTY_FORM); setDuplicateAlert(null);
     showToast("✅ تم إضافة العميل");
     setTimeout(() => phoneRef.current?.focus(), 100);
   };
@@ -171,50 +174,72 @@ export default function App() {
     if (!unitForm.project) return showToast("اختار المشروع", "error");
     if (checkDuplicate(unitForm.phone, units)) return showToast("الرقم مسجل في الوحدات قبل كده", "error");
     await addDoc(collection(db, "units"), { ...unitForm, sales: currentUser.name, salesUsername: currentUser.username, createdAt: Date.now(), updatedAt: Date.now() });
-    setUnitForm(EMPTY_UNIT);
-    setUnitDupAlert(null);
+    setUnitForm(EMPTY_UNIT); setUnitDupAlert(null);
     showToast("✅ تم إضافة الوحدة");
   };
 
   const handleUpdate = async (id) => {
     await updateDoc(doc(db, "leads", id), { ...editForm, updatedAt: Date.now() });
-    setEditId(null);
-    showToast("✅ تم التحديث");
+    setEditId(null); showToast("✅ تم التحديث");
   };
 
-  const handleDelete = async (id) => {
-    await deleteDoc(doc(db, "leads", id));
-    setConfirmDelete(null);
-    showToast("تم الحذف", "error");
-  };
-
-  const handleDeleteUnit = async (id) => {
-    await deleteDoc(doc(db, "units", id));
-    setConfirmDeleteUnit(null);
-    showToast("تم الحذف", "error");
-  };
+  const handleDelete = async (id) => { await deleteDoc(doc(db, "leads", id)); setConfirmDelete(null); showToast("تم الحذف", "error"); };
+  const handleDeleteUnit = async (id) => { await deleteDoc(doc(db, "units", id)); setConfirmDeleteUnit(null); showToast("تم الحذف", "error"); };
 
   const handleAddUser = async () => {
     if (!newUserForm.username || !newUserForm.password || !newUserForm.name) return showToast("ادخل كل البيانات", "error");
     if (users.find(u => u.username === newUserForm.username)) return showToast("اسم المستخدم موجود", "error");
-    await addDoc(collection(db, "users"), { ...newUserForm, role: "sales" });
-    setNewUserForm({ username: "", password: "", name: "" });
-    showToast("✅ تم إضافة الموظف");
+    await addDoc(collection(db, "users"), newUserForm);
+    setNewUserForm({ username: "", password: "", name: "", role: "sales" });
+    showToast("✅ تم إضافة المستخدم");
   };
 
-  const handleDeleteUser = async (id) => { await deleteDoc(doc(db, "users", id)); showToast("تم حذف الموظف", "error"); };
+  const handleDeleteUser = async (id) => { await deleteDoc(doc(db, "users", id)); showToast("تم الحذف", "error"); };
 
   const handleTheme = (t) => { setTheme(t); localStorage.setItem("crm_theme", t); };
 
+  const handleImgUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target.result;
+      setProfileImg(base64);
+      localStorage.setItem(`crm_img_${currentUser.username}`, base64);
+      showToast("✅ تم رفع الصورة");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleChangePassword = async () => {
+    if (!settingsForm.oldPass || !settingsForm.newPass || !settingsForm.confirmPass) return showToast("ادخل كل البيانات", "error");
+    if (settingsForm.newPass !== settingsForm.confirmPass) return showToast("كلمة المرور الجديدة مش متطابقة", "error");
+    const isAdmin = currentUser.username === ADMIN.username;
+    if (isAdmin) {
+      if (settingsForm.oldPass !== ADMIN.password) return showToast("كلمة المرور القديمة غلط", "error");
+      showToast("✅ تم تغيير كلمة المرور — عدّل ملف users.js");
+    } else {
+      const userDoc = users.find(u => u.username === currentUser.username);
+      if (!userDoc || userDoc.password !== settingsForm.oldPass) return showToast("كلمة المرور القديمة غلط", "error");
+      await updateDoc(doc(db, "users", userDoc.id), { password: settingsForm.newPass });
+      showToast("✅ تم تغيير كلمة المرور");
+    }
+    setSettingsForm({ oldPass: "", newPass: "", confirmPass: "" });
+  };
+
   const allSales = ["الكل", ...Array.from(new Set(leads.map(l => l.sales)))];
+  const allUnitSales = ["الكل", ...Array.from(new Set(units.map(u => u.sales)))];
+
   const filtered = leads.filter(l => {
     const q = search.toLowerCase();
     const matchSearch = !q || l.phone.includes(q) || (l.customerName || "").toLowerCase().includes(q) || l.sales.toLowerCase().includes(q) || l.project.toLowerCase().includes(q);
     return matchSearch && (filterSales === "الكل" || l.sales === filterSales) && (filterStatus === "الكل" || l.status === filterStatus);
   });
+
   const filteredUnits = units.filter(u => {
     const q = unitSearch.toLowerCase();
-    return !q || u.phone.includes(q) || (u.customerName || "").toLowerCase().includes(q) || u.sales.toLowerCase().includes(q) || u.project.toLowerCase().includes(q);
+    const matchSearch = !q || u.phone.includes(q) || (u.customerName || "").toLowerCase().includes(q) || u.sales.toLowerCase().includes(q) || u.project.toLowerCase().includes(q);
+    return matchSearch && (filterUnitSales === "الكل" || u.sales === filterUnitSales);
   });
 
   const totalLeads = leads.length;
@@ -226,12 +251,12 @@ export default function App() {
 
   const S = {
     root: { background: T.bg, minHeight: "100vh", fontFamily: "'Cairo','Tajawal',sans-serif", direction: "rtl", color: T.text },
-    header: { background: T.header, borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60, position: "sticky", top: 0, zIndex: 100 },
-    logo: { fontSize: 18, fontWeight: 900, letterSpacing: 1, color: T.text },
+    header: { background: T.header, borderBottom: `1px solid ${T.border}`, padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60, position: "sticky", top: 0, zIndex: 100 },
+    logo: { fontSize: 16, fontWeight: 900, color: T.text, whiteSpace: "nowrap" },
     logoAccent: { color: "#3b82f6" },
-    tabBar: { display: "flex", gap: 4, flexWrap: "wrap" },
-    tab: (a) => ({ padding: "8px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: a ? 700 : 500, background: a ? "#3b82f6" : "transparent", color: a ? "#fff" : T.sub, transition: "all .2s" }),
-    logoutBtn: { background: "#2a0f0f", color: "#f87171", border: "1px solid #7f1d1d", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+    tabBar: { display: "flex", gap: 2, flexWrap: "wrap" },
+    tab: (a) => ({ padding: "7px 12px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: a ? 700 : 500, background: a ? "#3b82f6" : "transparent", color: a ? "#fff" : T.sub }),
+    logoutBtn: { background: "#2a0f0f", color: "#f87171", border: "1px solid #7f1d1d", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" },
     body: { maxWidth: 900, margin: "0 auto", padding: "28px 16px" },
     card: { background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24, marginBottom: 20 },
     label: { fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 7, display: "block" },
@@ -273,20 +298,21 @@ export default function App() {
       <div style={S.header}>
         <div style={S.logo}>🏢 <span style={S.logoAccent}>The Palace</span> CRM</div>
         <div style={S.tabBar}>
-          <button style={S.tab(tab === "add")} onClick={() => setTab("add")}>➕ إضافة عميل</button>
-          <button style={S.tab(tab === "list")} onClick={() => setTab("list")}>
-            👥 العملاء <span style={{ background: T.border, borderRadius: 20, padding: "1px 8px", fontSize: 11, marginRight: 4 }}>{leads.length}</span>
-          </button>
-          <button style={S.tab(tab === "units")} onClick={() => setTab("units")}>
-            🏠 الوحدات <span style={{ background: T.border, borderRadius: 20, padding: "1px 8px", fontSize: 11, marginRight: 4 }}>{units.length}</span>
-          </button>
+          <button style={S.tab(tab === "add")} onClick={() => setTab("add")}>➕ عميل</button>
+          <button style={S.tab(tab === "list")} onClick={() => setTab("list")}>👥 العملاء {leads.length > 0 && <span style={{ background: T.border, borderRadius: 20, padding: "1px 6px", fontSize: 10, marginRight: 2 }}>{leads.length}</span>}</button>
+          <button style={S.tab(tab === "units")} onClick={() => setTab("units")}>🏠 الوحدات {units.length > 0 && <span style={{ background: T.border, borderRadius: 20, padding: "1px 6px", fontSize: 10, marginRight: 2 }}>{units.length}</span>}</button>
           <button style={S.tab(tab === "stats")} onClick={() => setTab("stats")}>📊 إحصائيات</button>
-          {currentUser.role === "admin" && <button style={S.tab(tab === "users")} onClick={() => setTab("users")}>👤 الموظفين</button>}
+          {currentUser.role === "admin" && <button style={S.tab(tab === "users")} onClick={() => setTab("users")}>👤 المستخدمين</button>}
           <button style={S.tab(tab === "themes")} onClick={() => setTab("themes")}>🎨 Themes</button>
+          <button style={S.tab(tab === "settings")} onClick={() => setTab("settings")}>⚙️ Settings</button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 12, color: T.sub }}>{currentUser.name}</span>
-          <button style={S.logoutBtn} onClick={handleLogout}>خروج 🚪</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {profileImg
+            ? <img src={profileImg} alt="profile" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", border: "2px solid #3b82f6" }} />
+            : <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1a2540", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>👤</div>
+          }
+          <span style={{ fontSize: 11, color: T.sub }}>{currentUser.name}</span>
+          <button style={S.logoutBtn} onClick={handleLogout}>خروج</button>
         </div>
       </div>
 
@@ -300,7 +326,7 @@ export default function App() {
               <label style={S.label}>📞 رقم التليفون *</label>
               <input ref={phoneRef} style={S.input} placeholder="01XXXXXXXXX" value={form.phone} onChange={e => handlePhoneChange(e.target.value)} autoFocus />
             </div>
-            {duplicateAlert && <div style={S.dupAlert}><span style={{ fontSize: 22 }}>🚫</span><div><div style={{ fontSize: 13, fontWeight: 900, color: "#f87171" }}>الرقم مسجل مسبقاً!</div><div style={{ fontSize: 12, color: "#fca5a5", marginTop: 3 }}>عند: <strong>{duplicateAlert.sales}</strong> · {duplicateAlert.project} · {duplicateAlert.status}</div></div></div>}
+            {duplicateAlert && <div style={S.dupAlert}><span style={{ fontSize: 22 }}>🚫</span><div><div style={{ fontSize: 13, fontWeight: 900, color: "#f87171" }}>الرقم مسجل!</div><div style={{ fontSize: 12, color: "#fca5a5", marginTop: 3 }}>عند: <strong>{duplicateAlert.sales}</strong> · {duplicateAlert.project} · {duplicateAlert.status}</div></div></div>}
             {form.phone.length >= 8 && !duplicateAlert && <div style={{ ...S.dupAlert, ...S.dupAlertGreen, marginBottom: 16 }}><span>✅</span><div style={{ fontSize: 13, color: "#4ade80", fontWeight: 700 }}>الرقم متاح</div></div>}
             <div style={S.row2}>
               <div><label style={S.label}>🧑 اسم العميل</label><input style={S.input} placeholder="اسم العميل" value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} /></div>
@@ -316,12 +342,7 @@ export default function App() {
             <div style={{ marginBottom: 16 }}>
               <label style={S.label}>📌 الحالة</label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {STATUS_OPTIONS.map(s => (
-                  <button key={s} onClick={() => setForm(f => ({ ...f, status: s }))}
-                    style={{ padding: "7px 14px", borderRadius: 20, border: `1px solid ${form.status === s ? STATUS_STYLE[s].dot : T.border}`, background: form.status === s ? STATUS_STYLE[s].bg : "transparent", color: form.status === s ? STATUS_STYLE[s].color : T.sub, fontSize: 12, cursor: "pointer" }}>
-                    {s}
-                  </button>
-                ))}
+                {STATUS_OPTIONS.map(s => <button key={s} onClick={() => setForm(f => ({ ...f, status: s }))} style={{ padding: "7px 14px", borderRadius: 20, border: `1px solid ${form.status === s ? STATUS_STYLE[s].dot : T.border}`, background: form.status === s ? STATUS_STYLE[s].bg : "transparent", color: form.status === s ? STATUS_STYLE[s].color : T.sub, fontSize: 12, cursor: "pointer" }}>{s}</button>)}
               </div>
             </div>
             <div style={{ marginBottom: 20 }}>
@@ -356,7 +377,7 @@ export default function App() {
                 </div>
                 {l.feedback && <div style={S.feedback}>💬 {l.feedback}</div>}
                 <div style={S.actions}>
-                  <button style={S.btnSm("#1e3a5f")} onClick={() => { setEditId(l.id); setEditForm({ customerName: l.customerName || "", status: l.status, feedback: l.feedback || "", project: l.project }); }}>✏️ تعديل</button>
+                  {(currentUser.role === "admin" || l.salesUsername === currentUser.username) && <button style={S.btnSm("#1e3a5f")} onClick={() => { setEditId(l.id); setEditForm({ customerName: l.customerName || "", status: l.status, feedback: l.feedback || "", project: l.project }); }}>✏️ تعديل</button>}
                   <a href={`https://wa.me/2${l.phone}`} target="_blank" rel="noreferrer"><button style={S.btnSm("#14532d")}>💬 واتساب</button></a>
                   <a href={`tel:${l.phone}`}><button style={S.btnSm("#1e2d3a")}>📞 اتصل</button></a>
                   {(currentUser.role === "admin" || l.salesUsername === currentUser.username) && <button style={{ ...S.btnSm("#2a0f0f"), marginRight: "auto" }} onClick={() => setConfirmDelete(l.id)}>🗑️</button>}
@@ -391,12 +412,7 @@ export default function App() {
               <div style={{ marginBottom: 16 }}>
                 <label style={S.label}>📌 حالة الوحدة</label>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {UNIT_STATUS.map(s => (
-                    <button key={s} onClick={() => setUnitForm(f => ({ ...f, status: s }))}
-                      style={{ padding: "7px 14px", borderRadius: 20, border: `1px solid ${unitForm.status === s ? UNIT_STATUS_STYLE[s].dot : T.border}`, background: unitForm.status === s ? UNIT_STATUS_STYLE[s].bg : "transparent", color: unitForm.status === s ? UNIT_STATUS_STYLE[s].color : T.sub, fontSize: 12, cursor: "pointer" }}>
-                      {s}
-                    </button>
-                  ))}
+                  {["Available", "Sold Out"].map(s => <button key={s} onClick={() => setUnitForm(f => ({ ...f, status: s }))} style={{ padding: "7px 14px", borderRadius: 20, border: `1px solid ${unitForm.status === s ? UNIT_STATUS_STYLE[s].dot : T.border}`, background: unitForm.status === s ? UNIT_STATUS_STYLE[s].bg : "transparent", color: unitForm.status === s ? UNIT_STATUS_STYLE[s].color : T.sub, fontSize: 12, cursor: "pointer" }}>{s}</button>)}
                 </div>
               </div>
               <div style={{ marginBottom: 20 }}>
@@ -405,8 +421,8 @@ export default function App() {
               </div>
               <button style={{ ...S.btn, opacity: unitDupAlert ? .4 : 1 }} onClick={handleUnitSubmit} disabled={!!unitDupAlert}>إضافة الوحدة ✓</button>
             </div>
-
             <input style={S.searchBar} placeholder="🔍 ابحث في الوحدات..." value={unitSearch} onChange={e => setUnitSearch(e.target.value)} />
+            {currentUser.role === "admin" && <div style={S.filters}><span style={{ fontSize: 12, color: T.sub, alignSelf: "center" }}>السيلز:</span>{allUnitSales.map(s => <button key={s} style={S.filterBtn(filterUnitSales === s)} onClick={() => setFilterUnitSales(s)}>{s}</button>)}</div>}
             <div style={{ fontSize: 12, color: T.sub, marginBottom: 14 }}>{filteredUnits.length} وحدة</div>
             {filteredUnits.length === 0 && <div style={{ textAlign: "center", padding: "60px 0", color: T.sub }}><div style={{ fontSize: 40 }}>🏠</div><div>مفيش وحدات لسه</div></div>}
             {filteredUnits.map(u => (
@@ -472,14 +488,23 @@ export default function App() {
         {/* USERS */}
         {tab === "users" && currentUser.role === "admin" && (
           <div style={S.card}>
-            <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20 }}>➕ إضافة موظف جديد</div>
-            <div style={S.row3}>
+            <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20 }}>➕ إضافة مستخدم جديد</div>
+            <div style={S.row2}>
               <div><label style={S.label}>👤 اسم المستخدم</label><input style={S.input} placeholder="username" value={newUserForm.username} onChange={e => setNewUserForm(f => ({ ...f, username: e.target.value }))} /></div>
               <div><label style={S.label}>🔒 كلمة المرور</label><input style={S.input} placeholder="password" value={newUserForm.password} onChange={e => setNewUserForm(f => ({ ...f, password: e.target.value }))} /></div>
-              <div><label style={S.label}>🧑 الاسم الكامل</label><input style={S.input} placeholder="اسم الموظف" value={newUserForm.name} onChange={e => setNewUserForm(f => ({ ...f, name: e.target.value }))} /></div>
             </div>
-            <button style={{ ...S.btn, marginBottom: 24 }} onClick={handleAddUser}>إضافة الموظف ✓</button>
-            <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 14 }}>👥 الموظفين الحاليين</div>
+            <div style={S.row2}>
+              <div><label style={S.label}>🧑 الاسم الكامل</label><input style={S.input} placeholder="اسم الموظف" value={newUserForm.name} onChange={e => setNewUserForm(f => ({ ...f, name: e.target.value }))} /></div>
+              <div>
+                <label style={S.label}>🎭 الصلاحية</label>
+                <select style={S.select} value={newUserForm.role} onChange={e => setNewUserForm(f => ({ ...f, role: e.target.value }))}>
+                  <option value="sales">Sales</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+            <button style={{ ...S.btn, marginBottom: 24 }} onClick={handleAddUser}>إضافة المستخدم ✓</button>
+            <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 14 }}>👥 المستخدمين الحاليين</div>
             <div style={{ background: T.input, borderRadius: 10, padding: "12px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div><div style={{ fontSize: 14, fontWeight: 700 }}>{ADMIN.name}</div><div style={{ fontSize: 12, color: T.sub }}>@{ADMIN.username}</div></div>
               <span style={{ fontSize: 11, background: "#1e3a5f", color: "#60a5fa", padding: "3px 10px", borderRadius: 20, fontWeight: 700 }}>Admin</span>
@@ -488,7 +513,7 @@ export default function App() {
               <div key={u.id} style={{ background: T.input, borderRadius: 10, padding: "12px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div><div style={{ fontSize: 14, fontWeight: 700 }}>{u.name}</div><div style={{ fontSize: 12, color: T.sub }}>@{u.username}</div></div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 11, background: T.border, color: T.sub, padding: "3px 10px", borderRadius: 20, fontWeight: 700 }}>Sales</span>
+                  <span style={{ fontSize: 11, background: u.role === "admin" ? "#1e3a5f" : T.border, color: u.role === "admin" ? "#60a5fa" : T.sub, padding: "3px 10px", borderRadius: 20, fontWeight: 700 }}>{u.role === "admin" ? "Admin" : "Sales"}</span>
                   <button style={S.btnSm("#2a0f0f")} onClick={() => handleDeleteUser(u.id)}>🗑️</button>
                 </div>
               </div>
@@ -501,29 +526,53 @@ export default function App() {
           <div style={S.card}>
             <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20 }}>🎨 اختار الثيم</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <div onClick={() => handleTheme("dark")} style={{ cursor: "pointer", borderRadius: 14, overflow: "hidden", border: `3px solid ${theme === "dark" ? "#3b82f6" : T.border}` }}>
-                <div style={{ background: "#080d18", padding: 20, textAlign: "center" }}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>🌙</div>
-                  <div style={{ color: "#f1f5f9", fontWeight: 700, fontSize: 14 }}>Dark</div>
-                  <div style={{ color: "#64748b", fontSize: 12, marginTop: 4 }}>الوضع الداكن</div>
+              {[["dark", "🌙", "Dark", "الوضع الداكن", "#080d18", "#f1f5f9"], ["light", "☀️", "Light", "الوضع الفاتح", "#f1f5f9", "#0f172a"]].map(([key, icon, name, desc, bg, color]) => (
+                <div key={key} onClick={() => handleTheme(key)} style={{ cursor: "pointer", borderRadius: 14, overflow: "hidden", border: `3px solid ${theme === key ? "#3b82f6" : T.border}` }}>
+                  <div style={{ background: bg, padding: 20, textAlign: "center" }}>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>{icon}</div>
+                    <div style={{ color, fontWeight: 700, fontSize: 14 }}>{name}</div>
+                    <div style={{ color: "#64748b", fontSize: 12, marginTop: 4 }}>{desc}</div>
+                  </div>
+                  {theme === key && <div style={{ background: "#3b82f6", padding: "6px", textAlign: "center", color: "#fff", fontSize: 12, fontWeight: 700 }}>✓ مفعّل</div>}
                 </div>
-                {theme === "dark" && <div style={{ background: "#3b82f6", padding: "6px", textAlign: "center", color: "#fff", fontSize: 12, fontWeight: 700 }}>✓ مفعّل</div>}
-              </div>
-              <div onClick={() => handleTheme("light")} style={{ cursor: "pointer", borderRadius: 14, overflow: "hidden", border: `3px solid ${theme === "light" ? "#3b82f6" : T.border}` }}>
-                <div style={{ background: "#f1f5f9", padding: 20, textAlign: "center" }}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>☀️</div>
-                  <div style={{ color: "#0f172a", fontWeight: 700, fontSize: 14 }}>Light</div>
-                  <div style={{ color: "#64748b", fontSize: 12, marginTop: 4 }}>الوضع الفاتح</div>
-                </div>
-                {theme === "light" && <div style={{ background: "#3b82f6", padding: "6px", textAlign: "center", color: "#fff", fontSize: 12, fontWeight: 700 }}>✓ مفعّل</div>}
-              </div>
+              ))}
             </div>
           </div>
         )}
 
+        {/* SETTINGS */}
+        {tab === "settings" && (
+          <>
+            <div style={S.card}>
+              <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20 }}>📸 صورة البروفايل</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 20 }}>
+                {profileImg
+                  ? <img src={profileImg} alt="profile" style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", border: "3px solid #3b82f6" }} />
+                  : <div style={{ width: 80, height: 80, borderRadius: "50%", background: T.border, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>👤</div>
+                }
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{currentUser.name}</div>
+                  <div style={{ fontSize: 12, color: T.sub, marginBottom: 12 }}>@{currentUser.username} · {currentUser.role}</div>
+                  <input ref={imgRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImgUpload} />
+                  <button style={{ ...S.btnSm("#1e3a5f"), padding: "8px 16px" }} onClick={() => imgRef.current.click()}>📸 رفع صورة</button>
+                  {profileImg && <button style={{ ...S.btnSm("#2a0f0f"), padding: "8px 16px", marginRight: 8 }} onClick={() => { setProfileImg(""); localStorage.removeItem(`crm_img_${currentUser.username}`); }}>🗑️ حذف</button>}
+                </div>
+              </div>
+            </div>
+            <div style={S.card}>
+              <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20 }}>🔒 تغيير كلمة المرور</div>
+              <div style={{ marginBottom: 16 }}><label style={S.label}>كلمة المرور القديمة</label><input style={S.input} type="password" placeholder="••••••••" value={settingsForm.oldPass} onChange={e => setSettingsForm(f => ({ ...f, oldPass: e.target.value }))} /></div>
+              <div style={S.row2}>
+                <div><label style={S.label}>كلمة المرور الجديدة</label><input style={S.input} type="password" placeholder="••••••••" value={settingsForm.newPass} onChange={e => setSettingsForm(f => ({ ...f, newPass: e.target.value }))} /></div>
+                <div><label style={S.label}>تأكيد كلمة المرور</label><input style={S.input} type="password" placeholder="••••••••" value={settingsForm.confirmPass} onChange={e => setSettingsForm(f => ({ ...f, confirmPass: e.target.value }))} /></div>
+              </div>
+              <button style={S.btn} onClick={handleChangePassword}>حفظ كلمة المرور</button>
+            </div>
+          </>
+        )}
+
       </div>
 
-      {/* EDIT MODAL */}
       {editId && (
         <div style={S.modalOverlay} onClick={() => setEditId(null)}>
           <div style={S.modal} onClick={e => e.stopPropagation()}>
@@ -545,7 +594,6 @@ export default function App() {
         </div>
       )}
 
-      {/* DELETE CONFIRM */}
       {confirmDelete && (
         <div style={S.modalOverlay} onClick={() => setConfirmDelete(null)}>
           <div style={{ ...S.modal, width: 340, textAlign: "center" }} onClick={e => e.stopPropagation()}>
@@ -560,7 +608,6 @@ export default function App() {
         </div>
       )}
 
-      {/* DELETE UNIT CONFIRM */}
       {confirmDeleteUnit && (
         <div style={S.modalOverlay} onClick={() => setConfirmDeleteUnit(null)}>
           <div style={{ ...S.modal, width: 340, textAlign: "center" }} onClick={e => e.stopPropagation()}>
