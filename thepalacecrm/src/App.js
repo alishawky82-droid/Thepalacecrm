@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { db } from "./firebase";
-import { collection, addDoc, onSnapshot, query, where, orderBy } from "firebase/firestore";
-import { USERS } from "./users";
+import { collection, addDoc, onSnapshot, query, where, orderBy, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { ADMIN } from "./users";
 
 const STATUS_OPTIONS = ["جديد", "تم التواصل", "مهتم", "زيارة مجدولة", "تم البيع", "غير مهتم", "متابعة"];
 const STATUS_STYLE = {
@@ -14,7 +14,7 @@ const STATUS_STYLE = {
   "متابعة":         { bg: "#2a1a00", color: "#fb923c", dot: "#f97316" },
 };
 const PROJECTS = ["كمبوند سيتي ستارز", "بالم هيلز التجمع", "كمبوند الماظة", "ميفيدا", "هايد بارك", "سوديك إيست", "تاون جيت", "أخرى"];
-const EMPTY_FORM = { phone: "", customerName: "", project: "", sales: "", feedback: "", status: "جديد" };
+const EMPTY_FORM = { phone: "", customerName: "", project: "", feedback: "", status: "جديد" };
 
 function formatPhone(v) { return v.replace(/\D/g, "").slice(0, 11); }
 function timeAgo(ts) {
@@ -31,12 +31,25 @@ function LoginPage({ onLogin }) {
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [error, setError] = useState("");
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "users"), snap => {
+      setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, []);
 
   const handleLogin = () => {
-    const u = USERS[user];
-    if (u && u.password === pass) {
-      localStorage.setItem("crm_user", user);
-      onLogin(user, u.role);
+    if (user === ADMIN.username && pass === ADMIN.password) {
+      localStorage.setItem("crm_user", JSON.stringify({ username: ADMIN.username, role: "admin", name: ADMIN.name }));
+      onLogin({ username: ADMIN.username, role: "admin", name: ADMIN.name });
+      return;
+    }
+    const found = users.find(u => u.username === user && u.password === pass);
+    if (found) {
+      localStorage.setItem("crm_user", JSON.stringify({ username: found.username, role: "sales", name: found.name }));
+      onLogin({ username: found.username, role: "sales", name: found.name });
     } else {
       setError("اسم المستخدم أو كلمة المرور غلط!");
     }
@@ -74,12 +87,11 @@ function LoginPage({ onLogin }) {
 }
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState(() => localStorage.getItem("crm_user") || null);
-  const [userRole, setUserRole] = useState(() => {
-    const u = localStorage.getItem("crm_user");
-    return u && USERS[u] ? USERS[u].role : null;
+  const [currentUser, setCurrentUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("crm_user")); } catch { return null; }
   });
   const [leads, setLeads] = useState([]);
+  const [users, setUsers] = useState([]);
   const [tab, setTab] = useState("add");
   const [form, setForm] = useState(EMPTY_FORM);
   const [duplicateAlert, setDuplicateAlert] = useState(null);
@@ -87,25 +99,27 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [filterSales, setFilterSales] = useState("الكل");
   const [filterStatus, setFilterStatus] = useState("الكل");
+  const [newUserForm, setNewUserForm] = useState({ username: "", password: "", name: "" });
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({});
-  const [confirmDelete, setConfirmDelete] = useState(null);
-  const [newUserForm, setNewUserForm] = useState({ username: "", password: "", name: "" });
   const phoneRef = useRef();
 
   useEffect(() => {
     if (!currentUser) return;
     const leadsRef = collection(db, "leads");
-    const q = userRole === "admin"
+    const q = currentUser.role === "admin"
       ? query(leadsRef, orderBy("createdAt", "desc"))
-      : query(leadsRef, where("salesUsername", "==", currentUser), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, snap => {
-      setLeads(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    return unsub;
-  }, [currentUser, userRole]);
+      : query(leadsRef, where("salesUsername", "==", currentUser.username), orderBy("createdAt", "desc"));
+    return onSnapshot(q, snap => setLeads(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [currentUser]);
 
-  if (!currentUser) return <LoginPage onLogin={(u, r) => { setCurrentUser(u); setUserRole(r); }} />;
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== "admin") return;
+    return onSnapshot(collection(db, "users"), snap => setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [currentUser]);
+
+  if (!currentUser) return <LoginPage onLogin={u => setCurrentUser(u)} />;
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -131,8 +145,8 @@ export default function App() {
     if (dup) return showToast(`الرقم ده مسجل عند ${dup.sales}`, "error");
     await addDoc(collection(db, "leads"), {
       ...form,
-      sales: USERS[currentUser].name,
-      salesUsername: currentUser,
+      sales: currentUser.name,
+      salesUsername: currentUser.username,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -142,14 +156,31 @@ export default function App() {
     setTimeout(() => phoneRef.current?.focus(), 100);
   };
 
-  const handleAddUser = () => {
+  const handleUpdate = async (id) => {
+    await updateDoc(doc(db, "leads", id), { ...editForm, updatedAt: Date.now() });
+    setEditId(null);
+    showToast("✅ تم التحديث");
+  };
+
+  const handleDelete = async (id) => {
+    await deleteDoc(doc(db, "leads", id));
+    setConfirmDelete(null);
+    showToast("تم الحذف", "error");
+  };
+
+  const handleAddUser = async () => {
     if (!newUserForm.username || !newUserForm.password || !newUserForm.name)
       return showToast("ادخل كل البيانات", "error");
-    if (USERS[newUserForm.username])
-      return showToast("اسم المستخدم موجود بالفعل", "error");
-    USERS[newUserForm.username] = { password: newUserForm.password, role: "sales", name: newUserForm.name };
+    const exists = users.find(u => u.username === newUserForm.username);
+    if (exists) return showToast("اسم المستخدم موجود بالفعل", "error");
+    await addDoc(collection(db, "users"), { ...newUserForm, role: "sales" });
     setNewUserForm({ username: "", password: "", name: "" });
     showToast("✅ تم إضافة الموظف");
+  };
+
+  const handleDeleteUser = async (id) => {
+    await deleteDoc(doc(db, "users", id));
+    showToast("تم حذف الموظف", "error");
   };
 
   const allSales = ["الكل", ...Array.from(new Set(leads.map(l => l.sales)))];
@@ -181,6 +212,7 @@ export default function App() {
     select: { width: "100%", background: "#070b14", border: "1px solid #1a2540", borderRadius: 10, padding: "12px 14px", color: "#f1f5f9", fontSize: 14, outline: "none", fontFamily: "inherit", cursor: "pointer" },
     textarea: { width: "100%", background: "#070b14", border: "1px solid #1a2540", borderRadius: 10, padding: "12px 14px", color: "#f1f5f9", fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "inherit", resize: "vertical", minHeight: 80 },
     row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 },
+    row3: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 },
     btn: { background: "linear-gradient(135deg,#2563eb,#4f46e5)", color: "#fff", border: "none", borderRadius: 10, padding: "13px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", width: "100%", fontFamily: "inherit" },
     btnSm: (c) => ({ background: c || "#1a2540", color: "#fff", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }),
     dupAlert: { background: "#2a0f0f", border: "1px solid #7f1d1d", borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12 },
@@ -211,7 +243,6 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem("crm_user");
     setCurrentUser(null);
-    setUserRole(null);
   };
 
   return (
@@ -224,10 +255,10 @@ export default function App() {
             👥 العملاء <span style={{ background: "#1a2540", borderRadius: 20, padding: "1px 8px", fontSize: 11, marginRight: 4 }}>{leads.length}</span>
           </button>
           <button style={S.tab(tab === "stats")} onClick={() => setTab("stats")}>📊 إحصائيات</button>
-          {userRole === "admin" && <button style={S.tab(tab === "users")} onClick={() => setTab("users")}>👥 الموظفين</button>}
+          {currentUser.role === "admin" && <button style={S.tab(tab === "users")} onClick={() => setTab("users")}>👥 الموظفين</button>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 12, color: "#64748b" }}>{USERS[currentUser]?.name}</span>
+          <span style={{ fontSize: 12, color: "#64748b" }}>{currentUser.name}</span>
           <button style={S.logoutBtn} onClick={handleLogout}>خروج 🚪</button>
         </div>
       </div>
@@ -263,7 +294,7 @@ export default function App() {
               </div>
               <div>
                 <label style={S.label}>👤 السيلز</label>
-                <input style={{ ...S.input, opacity: 0.6 }} value={USERS[currentUser]?.name} readOnly />
+                <input style={{ ...S.input, opacity: 0.6 }} value={currentUser.name} readOnly />
               </div>
             </div>
             <div style={{ marginBottom: 16 }}>
@@ -295,7 +326,7 @@ export default function App() {
         {tab === "list" && (
           <>
             <input style={S.searchBar} placeholder="🔍 ابحث..." value={search} onChange={e => setSearch(e.target.value)} />
-            {userRole === "admin" && (
+            {currentUser.role === "admin" && (
               <div style={S.filters}>
                 <span style={{ fontSize: 12, color: "#475569", alignSelf: "center" }}>السيلز:</span>
                 {allSales.map(s => <button key={s} style={S.filterBtn(filterSales === s)} onClick={() => setFilterSales(s)}>{s}</button>)}
@@ -323,8 +354,12 @@ export default function App() {
                 </div>
                 {l.feedback && <div style={S.feedback}>💬 {l.feedback}</div>}
                 <div style={S.actions}>
+                  <button style={S.btnSm("#1e3a5f")} onClick={() => { setEditId(l.id); setEditForm({ customerName: l.customerName || "", status: l.status, feedback: l.feedback || "", project: l.project }); }}>✏️ تعديل</button>
                   <a href={`https://wa.me/2${l.phone}`} target="_blank" rel="noreferrer"><button style={S.btnSm("#14532d")}>💬 واتساب</button></a>
                   <a href={`tel:${l.phone}`}><button style={S.btnSm("#1e2d3a")}>📞 اتصل</button></a>
+                  {(currentUser.role === "admin" || l.salesUsername === currentUser.username) && (
+                    <button style={{ ...S.btnSm("#2a0f0f"), marginRight: "auto" }} onClick={() => setConfirmDelete(l.id)}>🗑️</button>
+                  )}
                 </div>
               </div>
             ))}
@@ -365,10 +400,10 @@ export default function App() {
           </>
         )}
 
-        {tab === "users" && userRole === "admin" && (
+        {tab === "users" && currentUser.role === "admin" && (
           <div style={S.card}>
             <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20 }}>➕ إضافة موظف جديد</div>
-            <div style={S.row2}>
+            <div style={S.row3}>
               <div>
                 <label style={S.label}>👤 اسم المستخدم</label>
                 <input style={S.input} placeholder="username" value={newUserForm.username} onChange={e => setNewUserForm(f => ({ ...f, username: e.target.value }))} />
@@ -377,28 +412,70 @@ export default function App() {
                 <label style={S.label}>🔒 كلمة المرور</label>
                 <input style={S.input} placeholder="password" value={newUserForm.password} onChange={e => setNewUserForm(f => ({ ...f, password: e.target.value }))} />
               </div>
+              <div>
+                <label style={S.label}>🧑 الاسم الكامل</label>
+                <input style={S.input} placeholder="اسم الموظف" value={newUserForm.name} onChange={e => setNewUserForm(f => ({ ...f, name: e.target.value }))} />
+              </div>
             </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={S.label}>🧑 الاسم الكامل</label>
-              <input style={S.input} placeholder="اسم الموظف" value={newUserForm.name} onChange={e => setNewUserForm(f => ({ ...f, name: e.target.value }))} />
+            <button style={{ ...S.btn, marginBottom: 24 }} onClick={handleAddUser}>إضافة الموظف ✓</button>
+            <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 14 }}>👥 الموظفين الحاليين</div>
+            <div style={{ background: "#070b14", borderRadius: 10, padding: "12px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>{ADMIN.name}</div>
+                <div style={{ fontSize: 12, color: "#64748b" }}>@{ADMIN.username}</div>
+              </div>
+              <span style={{ fontSize: 11, background: "#1e3a5f", color: "#60a5fa", padding: "3px 10px", borderRadius: 20, fontWeight: 700 }}>Admin</span>
             </div>
-            <button style={S.btn} onClick={handleAddUser}>إضافة الموظف ✓</button>
-
-            <div style={{ marginTop: 24 }}>
-              <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 14 }}>👥 الموظفين الحاليين</div>
-              {Object.entries(USERS).map(([username, u]) => (
-                <div key={username} style={{ background: "#070b14", borderRadius: 10, padding: "12px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700 }}>{u.name}</div>
-                    <div style={{ fontSize: 12, color: "#64748b" }}>@{username}</div>
-                  </div>
-                  <span style={{ fontSize: 11, background: u.role === "admin" ? "#1e3a5f" : "#1a2540", color: u.role === "admin" ? "#60a5fa" : "#94a3b8", padding: "3px 10px", borderRadius: 20, fontWeight: 700 }}>{u.role === "admin" ? "Admin" : "Sales"}</span>
+            {users.map(u => (
+              <div key={u.id} style={{ background: "#070b14", borderRadius: 10, padding: "12px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{u.name}</div>
+                  <div style={{ fontSize: 12, color: "#64748b" }}>@{u.username}</div>
                 </div>
-              ))}
-            </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 11, background: "#1a2540", color: "#94a3b8", padding: "3px 10px", borderRadius: 20, fontWeight: 700 }}>Sales</span>
+                  <button style={S.btnSm("#2a0f0f")} onClick={() => handleDeleteUser(u.id)}>🗑️</button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
+
+      {editId && (
+        <div style={S.modalOverlay} onClick={() => setEditId(null)}>
+          <div style={S.modal} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20 }}>✏️ تعديل بيانات العميل</div>
+            <div style={{ marginBottom: 16 }}><label style={S.label}>🧑 اسم العميل</label><input style={S.input} value={editForm.customerName || ""} onChange={e => setEditForm(f => ({ ...f, customerName: e.target.value }))} /></div>
+            <div style={{ marginBottom: 16 }}><label style={S.label}>🏢 المشروع</label><select style={S.select} value={editForm.project} onChange={e => setEditForm(f => ({ ...f, project: e.target.value }))}>{PROJECTS.map(p => <option key={p}>{p}</option>)}</select></div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={S.label}>📌 الحالة</label>
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                {STATUS_OPTIONS.map(s => <button key={s} onClick={() => setEditForm(f => ({ ...f, status: s }))} style={{ padding: "6px 12px", borderRadius: 20, border: `1px solid ${editForm.status === s ? STATUS_STYLE[s].dot : "#1a2540"}`, background: editForm.status === s ? STATUS_STYLE[s].bg : "transparent", color: editForm.status === s ? STATUS_STYLE[s].color : "#64748b", fontSize: 12, cursor: "pointer" }}>{s}</button>)}
+              </div>
+            </div>
+            <div style={{ marginBottom: 20 }}><label style={S.label}>💬 الفيدباك</label><textarea style={S.textarea} value={editForm.feedback || ""} onChange={e => setEditForm(f => ({ ...f, feedback: e.target.value }))} /></div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={S.btn} onClick={() => handleUpdate(editId)}>حفظ التعديلات</button>
+              <button style={{ ...S.btnSm(), padding: "13px 20px" }} onClick={() => setEditId(null)}>إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div style={S.modalOverlay} onClick={() => setConfirmDelete(null)}>
+          <div style={{ ...S.modal, width: 340, textAlign: "center" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 44, marginBottom: 12 }}>🗑️</div>
+            <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 8 }}>تأكيد الحذف</div>
+            <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 24 }}>هتمسح بيانات العميل ده نهائياً</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={{ ...S.btn, background: "linear-gradient(135deg,#dc2626,#b91c1c)" }} onClick={() => handleDelete(confirmDelete)}>نعم، احذف</button>
+              <button style={{ ...S.btnSm(), padding: "13px 20px", flex: 1 }} onClick={() => setConfirmDelete(null)}>إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && <div style={S.toast(toast.type)}>{toast.msg}</div>}
     </div>
