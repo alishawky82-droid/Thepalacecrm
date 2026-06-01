@@ -19,7 +19,7 @@ const UNIT_STATUS_STYLE = {
 };
 const PROJECTS = [
   "بالم هيلز القاهرة الجديدة","ميفيدا","هايد بارك","سوديك إيست","تاون جيت","كمبوند الماظة",
-  "بيت الوطن","ماونتن فيو التجمع","كمبوند سيتي ستارز","لافيستا","سراي","الكمبوند الجولف",
+  "بيت الوطن","ماونتن فيو التجمع","كمبوند سيتى ستارز","لافيستا","سراي","الكمبوند الجولف",
   "ويستاون سوديك","بيفرلي هيلز أكتوبر","ماونتن فيو أكتوبر","ويست تاون","بالم هيلز أكتوبر",
   "الشيخ زايد","دريم لاند","كمبوند هايد بارك أكتوبر","نورث كوست مراسي","هاسيندا باي",
   "سيدي عبدالرحمن","نورث كوست سوديك","ماونتن فيو راس الحكمة","الساحل الشمالي العام",
@@ -134,9 +134,7 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
     const unitsRef = collection(db, "units");
-    const q = isAdmin
-      ? query(unitsRef, orderBy("createdAt", "desc"))
-      : query(unitsRef, where("salesUsername", "==", currentUser.username), orderBy("createdAt", "desc"));
+    const q = query(unitsRef, orderBy("createdAt", "desc"));
     return onSnapshot(q, snap => setUnits(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
   }, [currentUser]);
 
@@ -271,6 +269,8 @@ export default function App() {
   const statusMap = {};
   leads.forEach(l => { statusMap[l.status] = (statusMap[l.status] || 0) + 1; });
 
+  const canSeePhone = (item) => isAdmin || item.salesUsername === currentUser.username;
+
   const S = {
     root: { background: T.bg, minHeight: "100vh", fontFamily: "'Cairo','Tajawal',sans-serif", direction: "rtl", color: T.text },
     header: { background: T.header, borderBottom: `1px solid ${T.border}`, padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60, position: "sticky", top: 0, zIndex: 100 },
@@ -340,7 +340,6 @@ export default function App() {
 
       <div style={S.body}>
 
-        {/* ADD LEAD */}
         {tab === "add" && (
           <div style={S.card}>
             <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20 }}>إضافة عميل جديد</div>
@@ -385,7 +384,6 @@ export default function App() {
           </div>
         )}
 
-        {/* LEADS LIST */}
         {tab === "list" && (
           <>
             <input style={S.searchBar} placeholder="🔍 ابحث..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -419,7 +417,6 @@ export default function App() {
           </>
         )}
 
-        {/* UNITS */}
         {tab === "units" && (
           <>
             <div style={S.card}>
@@ -473,7 +470,7 @@ export default function App() {
                 <div style={S.leadHeader}>
                   <div>
                     {u.customerName && <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 2 }}>{u.customerName}</div>}
-                    {u.salesUsername === currentUser.username && <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: 1, color: T.sub, fontFamily: "monospace" }}>{u.phone}</div>}
+                    {canSeePhone(u) && <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: 1, color: T.sub, fontFamily: "monospace" }}>{u.phone}</div>}
                     <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{timeAgo(u.createdAt)}</div>
                   </div>
                   <span style={S.badge(u.status, UNIT_STATUS_STYLE)}><span style={S.dot(u.status, UNIT_STATUS_STYLE)} />{u.status}</span>
@@ -484,8 +481,8 @@ export default function App() {
                 </div>
                 {u.details && <div style={S.feedback}>🏠 {u.details}</div>}
                 <div style={S.actions}>
-                  <a href={`https://wa.me/2${u.phone}`} target="_blank" rel="noreferrer"><button style={S.btnSm("#14532d")}>💬 واتساب</button></a>
-                  {isAdmin && <a href={`tel:${u.phone}`}><button style={S.btnSm("#1e2d3a")}>📞 اتصل</button></a>}
+                  {canSeePhone(u) && <a href={`https://wa.me/2${u.phone}`} target="_blank" rel="noreferrer"><button style={S.btnSm("#14532d")}>💬 واتساب</button></a>}
+                  {canSeePhone(u) && <a href={`tel:${u.phone}`}><button style={S.btnSm("#1e2d3a")}>📞 اتصل</button></a>}
                   {(isAdmin || u.salesUsername === currentUser.username) && <button style={{ ...S.btnSm("#2a0f0f"), marginRight: "auto" }} onClick={() => setConfirmDeleteUnit(u.id)}>🗑️</button>}
                 </div>
               </div>
@@ -493,7 +490,6 @@ export default function App() {
           </>
         )}
 
-        {/* STATS */}
         {tab === "stats" && (
           <>
             <div style={S.statGrid}>
@@ -528,7 +524,6 @@ export default function App() {
           </>
         )}
 
-        {/* USERS */}
         {tab === "users" && isAdmin && (
           <div style={S.card}>
             <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20 }}>➕ إضافة مستخدم جديد</div>
@@ -563,7 +558,6 @@ export default function App() {
           </div>
         )}
 
-        {/* THEMES */}
         {tab === "themes" && (
           <div style={S.card}>
             <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20 }}>🎨 اختار الثيم</div>
@@ -582,7 +576,6 @@ export default function App() {
           </div>
         )}
 
-        {/* SETTINGS */}
         {tab === "settings" && (
           <>
             <div style={S.card}>
