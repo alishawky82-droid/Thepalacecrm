@@ -83,7 +83,7 @@ function LoginPage({ onLogin }) {
   return (
     <div style={{ background: T.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cairo','Tajawal',sans-serif", direction: "rtl" }}>
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderTop: `3px solid ${T.gold}`, borderRadius: 20, padding: "40px 36px", width: 360, boxShadow: "0 4px 24px #C9A84C18" }}>
-        <div style={{ fontSize: 22, fontWeight: 900, color: T.text, marginBottom: 4, textAlign: "center" }}>🏛 The Palace</div>
+        <div style={{ fontSize: 22, fontWeight: 900, color: T.text, marginBottom: 4, textAlign: "center" }}>🏛 The Place</div>
         <div style={{ fontSize: 14, fontWeight: 500, color: T.goldDark, marginBottom: 28, textAlign: "center", letterSpacing: 2 }}>CRM</div>
         <div style={{ width: 40, height: 2, background: T.gold, borderRadius: 2, margin: "0 auto 28px" }} />
         {error && <div style={{ background: "#FCEAEA", border: `1px solid #D88080`, borderRadius: 10, padding: "10px 14px", color: "#7A2020", fontSize: 13, marginBottom: 16, textAlign: "center" }}>{error}</div>}
@@ -278,7 +278,7 @@ export default function App() {
   return (
     <div style={S.root}>
       <div style={S.header}>
-        <div style={S.logo}>🏛 <span style={S.logoAccent}>The Palace</span> CRM</div>
+        <div style={S.logo}>🏛 <span style={S.logoAccent}>The Place</span> CRM</div>
         <div style={S.tabBar}>
           <button style={S.tab(tab === "add")} onClick={() => setTab("add")}>➕ عميل</button>
           <button style={S.tab(tab === "list")} onClick={() => setTab("list")}>👥 العملاء {leads.length > 0 && <span style={{ background: `${T.gold}33`, borderRadius: 20, padding: "1px 6px", fontSize: 10, marginRight: 2, color: T.goldDark }}>{leads.length}</span>}</button>
