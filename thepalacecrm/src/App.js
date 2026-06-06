@@ -18,12 +18,93 @@ const UNIT_STATUS_STYLE = {
   "Sold Out":  { bg: "#FCEAEA", color: "#7A2020", dot: "#D88080" },
 };
 const PROJECTS = [
-  "بالم هيلز القاهرة الجديدة","ميفيدا","هايد بارك","سوديك إيست","تاون جيت","كمبوند الماظة",
-  "بيت الوطن","ماونتن فيو التجمع","كمبوند سيتى ستارز","لافيستا","سراي","الكمبوند الجولف",
-  "ويستاون سوديك","بيفرلي هيلز أكتوبر","ماونتن فيو أكتوبر","ويست تاون","بالم هيلز أكتوبر",
-  "الشيخ زايد","دريم لاند","كمبوند هايد بارك أكتوبر","نورث كوست مراسي","هاسيندا باي",
-  "سيدي عبدالرحمن","نورث كوست سوديك","ماونتن فيو راس الحكمة","الساحل الشمالي العام",
-  "العين السخنة بورتو","العين السخنة مونت گالا","العين السخنة هاسيندا","السخنة العام","أخرى"
+  "Acasa Mia",
+  "Address East",
+  "Alamien",
+  "Aliva",
+  "Amorada",
+  "Amwaj",
+  "At East",
+  "Azad",
+  "Azha",
+  "Azzar 1",
+  "Banafseg",
+  "Bloomfields",
+  "Blumar",
+  "CFC",
+  "Cali Coast",
+  "Capital Gardens",
+  "City Gate",
+  "Creek Town",
+  "D Bay",
+  "District 5",
+  "East Shire",
+  "East Town",
+  "Fifth Square",
+  "Foka Bay",
+  "Gaia",
+  "Galleria",
+  "Green Square",
+  "Hap Town",
+  "Hyde Park",
+  "Hyde Park Central",
+  "Il Bosco City",
+  "Ivoire East",
+  "Jayed",
+  "Katamia Gardens",
+  "L'Avenir",
+  "Lake View 1",
+  "Lake View 2",
+  "Lakeview Residence 2",
+  "Lavista",
+  "Lavista Sokhna 5",
+  "Madinaty",
+  "Marasem",
+  "Marassi",
+  "Marq Gardens",
+  "Marsellia",
+  "Midtown New Cairo",
+  "Mountain View",
+  "Mountain View 1.1",
+  "Mountain View Hyde Park",
+  "Mountain View Ras Al Hekma",
+  "Mountain View iCity N.C",
+  "Narges",
+  "Palm Hills",
+  "Park View",
+  "Patio 7",
+  "Patio Oro",
+  "Promenade",
+  "Regents Square",
+  "Sabbour",
+  "Sarai",
+  "Stella",
+  "Stone Park",
+  "Stone Residence",
+  "Summer",
+  "Taj City",
+  "Telal East",
+  "The Brooks",
+  "The Crest",
+  "The Icon Gardens",
+  "The Square",
+  "Trio",
+  "Water Way",
+  "Yassmin",
+  "Zed East",
+  "Zed West",
+  "iCity October",
+  "Marsellia 3",
+  "Marsellia 4",
+  "Marsellia 5",
+  "Mivida",
+  "Mountain view 2",
+  "Sea shell",
+  "playa",
+  "shoifat",
+  "lattous",
+  "zizinia",
+  "أخرى"
 ];
 const EMPTY_FORM = { phone: "", customerName: "", project: "", feedback: "", status: "No Answer" };
 const EMPTY_UNIT = { phone: "", customerName: "", project: "", details: "", status: "Available" };
@@ -213,107 +294,6 @@ export default function App() {
     }
     setSettingsForm({ oldPass: "", newPass: "", confirmPass: "" });
   };
-
-  // Export leads to CSV
-  const handleExportLeads = () => {
-    if (leads.length === 0) return showToast("مفيش عملاء للتصدير", "error");
-    const headers = ["الاسم", "التليفون", "السيلز", "المشروع", "الحالة", "الفيدباك", "التاريخ"];
-    const rows = leads.map(l => [
-      l.customerName || "",
-      l.phone,
-      l.sales,
-      l.project,
-      l.status,
-      l.feedback || "",
-      new Date(l.createdAt).toLocaleDateString("ar-EG")
-    ]);
-    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `عملاء_${new Date().toLocaleDateString("ar-EG").replace(/\//g,"-")}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-    showToast("✅ تم تصدير العملاء");
-  };
-
-  // Export units to CSV
-  const handleExportUnits = () => {
-    if (units.length === 0) return showToast("مفيش وحدات للتصدير", "error");
-    const headers = ["الاسم", "التليفون", "السيلز", "المشروع", "الحالة", "التفاصيل", "التاريخ"];
-    const rows = units.map(u => [
-      u.customerName || "",
-      u.phone,
-      u.sales,
-      u.project,
-      u.status,
-      u.details || "",
-      new Date(u.createdAt).toLocaleDateString("ar-EG")
-    ]);
-    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `وحدات_${new Date().toLocaleDateString("ar-EG").replace(/\//g,"-")}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-    showToast("✅ تم تصدير الوحدات");
-  };
-
-  // Import leads from CSV
-  const handleImportLeads = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const text = await file.text();
-    const lines = text.replace(/\r/g, "").split("\n").filter(l => l.trim());
-    if (lines.length < 2) return showToast("الملف فاضي", "error");
-    let count = 0;
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(",").map(c => c.replace(/^"|"$/g, "").trim());
-      if (!cols[1] || cols[1].length < 8) continue;
-      if (checkDuplicate(cols[1], leads)) continue;
-      await addDoc(collection(db, "leads"), {
-        customerName: cols[0] || "",
-        phone: cols[1],
-        sales: cols[2] || currentUser.name,
-        salesUsername: currentUser.username,
-        project: cols[3] || "",
-        status: cols[4] || "No Answer",
-        feedback: cols[5] || "",
-        createdAt: Date.now(), updatedAt: Date.now()
-      });
-      count++;
-    }
-    showToast(`✅ تم استيراد ${count} عميل`);
-    e.target.value = "";
-  };
-
-  // Import units from CSV
-  const handleImportUnits = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const text = await file.text();
-    const lines = text.replace(/\r/g, "").split("\n").filter(l => l.trim());
-    if (lines.length < 2) return showToast("الملف فاضي", "error");
-    let count = 0;
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(",").map(c => c.replace(/^"|"$/g, "").trim());
-      if (!cols[1] || cols[1].length < 8) continue;
-      if (checkDuplicate(cols[1], units)) continue;
-      await addDoc(collection(db, "units"), {
-        customerName: cols[0] || "",
-        phone: cols[1],
-        sales: cols[2] || currentUser.name,
-        salesUsername: currentUser.username,
-        project: cols[3] || "",
-        status: cols[4] || "Available",
-        details: cols[5] || "",
-        createdAt: Date.now(), updatedAt: Date.now()
-      });
-      count++;
-    }
-    showToast(`✅ تم استيراد ${count} وحدة`);
-    e.target.value = "";
-  };
-
   const handleLogout = () => { localStorage.removeItem("crm_user"); setCurrentUser(null); };
 
   const allSales = ["الكل", ...Array.from(new Set(leads.map(l => l.sales)))];
@@ -619,47 +599,6 @@ export default function App() {
 
         {tab === "settings" && (
           <>
-
-            <div style={S.card}>
-              <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20, color: T.text }}>📊 تصدير واستيراد البيانات</div>
-              
-              {/* Export */}
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 12 }}>📤 تصدير إلى Excel</div>
-                <div style={{ display: "flex", gap: 12 }}>
-                  <button style={{ ...S.btnSm("#0F5E3A"), padding: "10px 20px", fontSize: 13 }} onClick={handleExportLeads}>
-                    👥 تصدير العملاء ({leads.length})
-                  </button>
-                  <button style={{ ...S.btnSm("#5C3A00"), padding: "10px 20px", fontSize: 13 }} onClick={handleExportUnits}>
-                    🏠 تصدير الوحدات ({units.length})
-                  </button>
-                </div>
-              </div>
-
-              {/* Import */}
-              {isAdmin && (
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 8 }}>📥 استيراد من Excel/CSV</div>
-                  <div style={{ fontSize: 11, color: T.sub, marginBottom: 12, direction: "rtl" }}>
-                    الملف لازم يكون CSV بالترتيب: الاسم، التليفون، السيلز، المشروع، الحالة، التفاصيل
-                  </div>
-                  <div style={{ display: "flex", gap: 12 }}>
-                    <div>
-                      <input type="file" accept=".csv" style={{ display: "none" }} id="importLeads" onChange={handleImportLeads} />
-                      <button style={{ ...S.btnSm("#1e3a5f"), padding: "10px 20px", fontSize: 13 }} onClick={() => document.getElementById("importLeads").click()}>
-                        👥 استيراد عملاء
-                      </button>
-                    </div>
-                    <div>
-                      <input type="file" accept=".csv" style={{ display: "none" }} id="importUnits" onChange={handleImportUnits} />
-                      <button style={{ ...S.btnSm("#1e3a5f"), padding: "10px 20px", fontSize: 13 }} onClick={() => document.getElementById("importUnits").click()}>
-                        🏠 استيراد وحدات
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
             <div style={S.card}>
               <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 20, color: T.text }}>📸 صورة البروفايل</div>
               <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 20 }}>
